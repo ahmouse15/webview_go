@@ -12,12 +12,16 @@ package webview
 #cgo darwin LDFLAGS: -framework WebKit -ldl
 
 #cgo windows CXXFLAGS: -DWEBVIEW_EDGE -std=c++14 -I${SRCDIR}/libs/mswebview2/include
+#cgo windows CFLAGS: -I${SRCDIR}/libs/mswebview2/include
 #cgo windows LDFLAGS: -static -ladvapi32 -lole32 -lshell32 -lshlwapi -luser32 -lversion
 
 #include "webview.h"
 
 #include <stdlib.h>
 #include <stdint.h>
+
+extern char *found_uri;
+void onUriChange(webview_t web_view);
 
 void CgoWebViewDispatch(webview_t w, uintptr_t arg);
 void CgoWebViewBind(webview_t w, const char *name, uintptr_t index);
@@ -118,6 +122,8 @@ type WebView interface {
 
 	// Removes a callback that was previously set by Bind.
 	Unbind(name string) error
+
+	GetAuthUri() string
 }
 
 type webview struct {
@@ -148,10 +154,16 @@ func New(debug bool) WebView { return NewWindow(debug, nil) }
 // embedded into the given parent window. Otherwise a new window is created.
 // Depending on the platform, a GtkWindow, NSWindow or HWND pointer can be passed
 // here.
+
 func NewWindow(debug bool, window unsafe.Pointer) WebView {
 	w := &webview{}
 	w.w = C.webview_create(boolToInt(debug), window)
+	C.onUriChange(w.w)
 	return w
+}
+
+func (w *webview) GetAuthUri() string {
+	return C.GoString(C.found_uri)
 }
 
 func (w *webview) Destroy() {
